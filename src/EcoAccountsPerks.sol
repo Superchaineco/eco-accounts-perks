@@ -29,6 +29,9 @@ contract EcoAccountsPerks is EIP712, AccessControl, Ownable {
 
     bytes32 public constant SIGNER_ROLE = keccak256("SIGNER_ROLE");
 
+    bytes32 public constant PERKS_REDEMPTION_TYPEHASH =
+        keccak256("PerkRedemption(uint256 perkId,uint256 nullifier)");
+
     /*/////////////////////////////////////////////////////////////
                                 Errors
     //////////////////////////////////////////////////////////////*/
@@ -36,7 +39,7 @@ contract EcoAccountsPerks is EIP712, AccessControl, Ownable {
     error InvalidPerk(uint256 perkId);
     error PerkMaxRedemptionsReached(uint256 perkId);
     error InvalidSignature();
-    error InvalidSigner();
+    error InvalidSigner(address actualSigner);
     error NullifierAlreadyUsed(uint256 nullifier);
 
     /*///////////////////////////////////////////////////////////////
@@ -154,13 +157,11 @@ contract EcoAccountsPerks is EIP712, AccessControl, Ownable {
         bytes memory signature,
         uint256 nullifier
     ) internal view returns (bool isValid) {
-        require(hasRole(SIGNER_ROLE, signer), InvalidSigner());
+        require(hasRole(SIGNER_ROLE, signer), InvalidSigner(signer));
         bytes32 data = _hashTypedDataV4(
             keccak256(
                 abi.encode(
-                    keccak256(
-                        "PerkRedemption(uint256 perkId,uint256 nullifier)"
-                    ),
+                    PERKS_REDEMPTION_TYPEHASH,
                     perkId,
                     nullifier
                 )
@@ -175,5 +176,9 @@ contract EcoAccountsPerks is EIP712, AccessControl, Ownable {
         bytes memory signature
     ) internal view returns (bool) {
         return SignatureChecker.isValidSignatureNow(signer, hash, signature);
+    }
+
+    function domainSeparator() external view returns (bytes32) {
+        return _domainSeparatorV4();
     }
 }
