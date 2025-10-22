@@ -5,9 +5,10 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 import {IEcoAccountsBadges} from "./interfaces/IEcoAccountsBadges.sol";
 
-contract EcoAccountsPerks is AccessControl, Ownable {
+contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
     /*///////////////////////////////////////////////////////////////
                         State, Constants & Structs
     //////////////////////////////////////////////////////////////*/
@@ -80,7 +81,7 @@ contract EcoAccountsPerks is AccessControl, Ownable {
         uint256 badgeId,
         uint256 tier,
         address user
-    ) public onlyRole(SIGNER_ROLE) {
+    ) public onlyRole(SIGNER_ROLE) whenNotPaused {
         bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
         require(_checkPerkValid(perkId), InvalidPerk(perkId));
         require(
