@@ -3,18 +3,23 @@ pragma solidity ^0.8.20;
 
 import {Test, console} from "forge-std/Test.sol";
 import {EcoAccountsPerks} from "../src/EcoAccountsPerks.sol";
+import {IEcoAccountsBadges} from "../src/interfaces/IEcoAccountsBadges.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract EcoAccountsPerksUnit is Test {
     EcoAccountsPerks public ecoAccountsPerks;
+    IEcoAccountsBadges public ecoAccountsBadges;
     DummyToken public dummyToken;
 
     uint256 internal signerPk = 0xBEEF;
     address internal signer = vm.addr(signerPk);
 
     function setUp() public {
-        
-        ecoAccountsPerks = new EcoAccountsPerks(address(this));
+        ecoAccountsBadges = new DummyEcoAccountsBadges();
+        ecoAccountsPerks = new EcoAccountsPerks(
+            address(this),
+            address(ecoAccountsBadges)
+        );
         dummyToken = new DummyToken();
         dummyToken.transfer(
             address(ecoAccountsPerks),
@@ -27,7 +32,18 @@ contract EcoAccountsPerksUnit is Test {
         uint256 amount,
         uint256 maxRedemptions
     ) {
-        ecoAccountsPerks.addPerk(token, amount, maxRedemptions);
+        ecoAccountsPerks.addPerk(1, 1, token, amount, maxRedemptions);
+        _;
+    }
+
+    modifier createPerkWithBadgeIdAndTier(
+        address token,
+        uint256 amount,
+        uint256 maxRedemptions,
+        uint256 badgeId,
+        uint256 tier
+    ) {
+        ecoAccountsPerks.addPerk(badgeId, tier, token, amount, maxRedemptions);
         _;
     }
 
@@ -36,12 +52,17 @@ contract EcoAccountsPerksUnit is Test {
         uint256 amount = 100;
         uint256 maxRedemptions = 10;
 
+        uint256 badgeId = 1;
+        uint256 tier = 1;
+
+        bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
+
         (
             address perkToken,
             uint256 perkAmount,
             uint256 perkMaxRedemptions,
             uint256 perkRedemptions
-        ) = ecoAccountsPerks.perks(0);
+        ) = ecoAccountsPerks.perks(perkId);
         assertEq(perkToken, token);
         assertEq(perkAmount, amount);
         assertEq(perkMaxRedemptions, maxRedemptions);
@@ -53,13 +74,24 @@ contract EcoAccountsPerksUnit is Test {
         uint256 newAmount = 200;
         uint256 newMaxRedemptions = 20;
 
-        ecoAccountsPerks.setPerk(0, newToken, newAmount, newMaxRedemptions);
+        uint256 badgeId = 1;
+        uint256 tier = 1;
+
+        bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
+
+        ecoAccountsPerks.setPerk(
+            badgeId,
+            tier,
+            newToken,
+            newAmount,
+            newMaxRedemptions
+        );
         (
             address perkToken,
             uint256 perkAmount,
             uint256 perkMaxRedemptions,
             uint256 perkRedemptions
-        ) = ecoAccountsPerks.perks(0);
+        ) = ecoAccountsPerks.perks(perkId);
         assertEq(perkToken, newToken);
         assertEq(perkAmount, newAmount);
         assertEq(perkMaxRedemptions, newMaxRedemptions);
@@ -67,43 +99,56 @@ contract EcoAccountsPerksUnit is Test {
     }
 
     function test_redemPerk() public createPerk(address(dummyToken), 100, 10) {
+        uint256 badgeId = 1;
+        uint256 tier = 1;
         ecoAccountsPerks.grantRole(ecoAccountsPerks.SIGNER_ROLE(), signer);
-        uint256 perkId = 0;
-        uint256 nullifier = 1;
-        bytes memory signature = _getSignature(perkId, nullifier);
-        ecoAccountsPerks.redeemPerk(
-            perkId,
-            signature,
-            signer,
-            nullifier
-        );
+        vm.prank(signer);
+        ecoAccountsPerks.redeemPerk(badgeId, tier, address(0xABC));
+        uint256 userBalance = dummyToken.balanceOf(address(0xABC));
+        assertEq(userBalance, 100);
     }
 
-    function _getSignature(
-        uint256 perkId,
-        uint256 nullifier
-    ) internal returns (bytes memory signature) {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                ecoAccountsPerks.PERKS_REDEMPTION_TYPEHASH(),
-                perkId,
-                nullifier
-            )
+    function test_redemPerks()
+        public
+        createPerkWithBadgeIdAndTier(address(dummyToken), 100, 1, 1, 1)
+        createPerkWithBadgeIdAndTier(address(dummyToken), 100, 1, 1, 2)
+    {
+        uint256 badgeId1 = 1;
+        uint256 tier1 = 1;
+
+        uint256 badgeId2 = 1;
+        uint256 tier2 = 2;
+
+        uint256[] memory badgeIds = new uint256[](2);
+        badgeIds[0] = badgeId1;
+        badgeIds[1] = badgeId2;
+
+        uint256[] memory tiers = new uint256[](2);
+        tiers[0] = tier1;
+        tiers[1] = tier2;
+
+        ecoAccountsPerks.grantRole(ecoAccountsPerks.SIGNER_ROLE(), signer);
+        vm.prank(signer);
+        ecoAccountsPerks.redeemPerks(
+            badgeIds,
+            tiers,
+            address(0xABC)
         );
 
-        bytes32 domain = ecoAccountsPerks.domainSeparator();
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domain, structHash)
-        );
-
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPk, digest);
-        signature = abi.encodePacked(r, s, v);
+        uint256 userBalance = dummyToken.balanceOf(address(0xABC));
+        assertEq(userBalance, 200);
     }
 }
-
 
 contract DummyToken is ERC20 {
     constructor() ERC20("DummyToken", "DUMMY") {
         _mint(msg.sender, 1000000 * 10 ** decimals());
+    }
+}
+
+contract DummyEcoAccountsBadges is IEcoAccountsBadges {
+
+    function getUserBadgeTier(address user, uint256 badgeId) external view override returns (uint256) {
+        return 2;
     }
 }
