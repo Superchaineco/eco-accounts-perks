@@ -19,6 +19,11 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         uint256 redemptions;
     }
 
+    struct PerkClaim {
+        uint256 badgeId;
+        uint256 tier;
+    }
+
     IEcoAccountsBadges public ecoAccountsBadges;
 
     mapping(bytes32 => Perk) public perks;
@@ -111,17 +116,11 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
     }
 
     function redeemPerks(
-        uint256[] calldata badgeIds,
-        uint256[] calldata tiers,
+        PerkClaim[] calldata claims,
         address user
     ) external onlyRole(SIGNER_ROLE) {
-        require(
-            badgeIds.length == tiers.length,
-            "Badge IDs and tiers length mismatch"
-        );
-
-        for (uint256 i = 0; i < badgeIds.length; i++) {
-            redeemPerk(badgeIds[i], tiers[i], user);
+        for (uint256 i = 0; i < claims.length; i++) {
+            redeemPerk(claims[i].badgeId, claims[i].tier, user);
         }
     }
 
