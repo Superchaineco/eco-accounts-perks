@@ -5,7 +5,7 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IEcoAccountsBadges} from "./interfaces/IEcoAccountsBadges.sol";
 
 contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
@@ -62,6 +62,8 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         uint256 amount
     );
 
+    event PerkCompleted(uint256 indexed badgeId, uint256 indexed tier);
+
     /*///////////////////////////////////////////////////////////////
                                 Constructor
     //////////////////////////////////////////////////////////////*/
@@ -102,6 +104,10 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
 
         IERC20(perk.token).transfer(user, perk.amount);
         emit PerkRedeemed(perkId, user, perk.token, perk.amount);
+
+        if (perk.redemptions >= perk.maxRedemptions) {
+            emit PerkCompleted(badgeId, tier);
+        }
     }
 
     function redeemPerks(
@@ -169,10 +175,24 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
                         Getter Functions
     //////////////////////////////////////////////////////////////*/
 
+    function canClaimPerk(
+        uint256 badgeId,
+        uint256 tier,
+        address user
+    ) public view returns (bool canClaim) {
+        bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
+        return
+            _checkPerkValid(perkId) &&
+            _checkUserNotClaimedPerk(perkId, user) &&
+            _checkUserHasBadge(user, badgeId, tier);
+    }
+
     function perkIsClaimed(
-        bytes32 perkId,
+        uint256 badgeId,
+        uint256 tier,
         address user
     ) public view returns (bool isClaimed) {
+        bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
         return redeemedPerks[perkId][user];
     }
 
