@@ -97,7 +97,7 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
 
         Perk storage perk = perks[perkId];
 
-        if (perk.maxRedemptions != type(uint256).max) {
+        if (perk.maxRedemptions != 0) {
             perk.redemptions += 1;
         }
         redeemedPerks[perkId][user] = true;
