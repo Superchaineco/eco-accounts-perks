@@ -108,6 +108,7 @@ contract EcoAccountsPerksUnit is Test {
         assertEq(userBalance, 100);
     }
 
+
     function test_redemPerks()
         public
         createPerkWithBadgeIdAndTier(address(dummyToken), 100, 1, 1, 1)
@@ -119,24 +120,31 @@ contract EcoAccountsPerksUnit is Test {
         uint256 badgeId2 = 1;
         uint256 tier2 = 2;
 
-        uint256[] memory badgeIds = new uint256[](2);
-        badgeIds[0] = badgeId1;
-        badgeIds[1] = badgeId2;
-
-        uint256[] memory tiers = new uint256[](2);
-        tiers[0] = tier1;
-        tiers[1] = tier2;
+        EcoAccountsPerks.PerkClaim[] memory claims = new EcoAccountsPerks.PerkClaim[](2);
+        claims[0] = EcoAccountsPerks.PerkClaim({badgeId: badgeId1, tier: tier1});
+        claims[1] = EcoAccountsPerks.PerkClaim({badgeId: badgeId2, tier: tier2});
 
         ecoAccountsPerks.grantRole(ecoAccountsPerks.SIGNER_ROLE(), signer);
         vm.prank(signer);
-        ecoAccountsPerks.redeemPerks(
-            badgeIds,
-            tiers,
-            address(0xABC)
-        );
+        ecoAccountsPerks.redeemPerks(claims, address(0xABC));
 
         uint256 userBalance = dummyToken.balanceOf(address(0xABC));
         assertEq(userBalance, 200);
+    }
+
+    function test_redemPerksWithoutMaxRedemptions() public createPerk(address(dummyToken), 100, 0) {
+        uint256 badgeId1 = 1;
+        uint256 tier1 = 1;
+
+        EcoAccountsPerks.PerkClaim[] memory claims = new EcoAccountsPerks.PerkClaim[](1);
+        claims[0] = EcoAccountsPerks.PerkClaim({badgeId: badgeId1, tier: tier1});
+
+        ecoAccountsPerks.grantRole(ecoAccountsPerks.SIGNER_ROLE(), signer);
+        vm.prank(signer);
+        ecoAccountsPerks.redeemPerks(claims, address(0xABC));
+
+        uint256 userBalance = dummyToken.balanceOf(address(0xABC));
+        assertEq(userBalance, 100);
     }
 }
 
@@ -147,8 +155,10 @@ contract DummyToken is ERC20 {
 }
 
 contract DummyEcoAccountsBadges is IEcoAccountsBadges {
-
-    function getUserBadgeTier(address user, uint256 badgeId) external view override returns (uint256) {
+    function getUserBadgeTier(
+        address user,
+        uint256 badgeId
+    ) external view override returns (uint256) {
         return 2;
     }
 }

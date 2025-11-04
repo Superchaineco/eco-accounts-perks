@@ -35,7 +35,6 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
                                 Errors
     //////////////////////////////////////////////////////////////*/
 
-    error InvalidPerk(bytes32 perkId);
     error PerkMaxRedemptionsReached(bytes32 perkId);
     error PerkAlreadyClaimed(bytes32 perkId, address user);
     error UserDoesNotHaveBadge(address user, uint256 badgeId, uint256 tier);
@@ -64,6 +63,8 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         bytes32 indexed perkId,
         address indexed redeemer,
         address indexed token,
+        uint256 badgeId,
+        uint256 tier,
         uint256 amount
     );
 
@@ -90,28 +91,36 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         address user
     ) public onlyRole(SIGNER_ROLE) whenNotPaused {
         bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
-        require(_checkPerkValid(perkId), InvalidPerk(perkId));
-        require(
-            _checkUserNotClaimedPerk(perkId, user),
-            PerkAlreadyClaimed(perkId, user)
-        );
-        require(
-            _checkUserHasBadge(user, badgeId, tier),
-            UserDoesNotHaveBadge(user, badgeId, tier)
-        );
+        if (_checkPerkValid(perkId)) {
+            require(
+                _checkUserNotClaimedPerk(perkId, user),
+                PerkAlreadyClaimed(perkId, user)
+            );
+            require(
+                _checkUserHasBadge(user, badgeId, tier),
+                UserDoesNotHaveBadge(user, badgeId, tier)
+            );
 
-        Perk storage perk = perks[perkId];
+            Perk storage perk = perks[perkId];
 
-        if (perk.maxRedemptions != 0) {
-            perk.redemptions += 1;
-        }
-        redeemedPerks[perkId][user] = true;
+            if (perk.maxRedemptions != 0) {
+                perk.redemptions += 1;
+            }
+            redeemedPerks[perkId][user] = true;
 
-        IERC20(perk.token).transfer(user, perk.amount);
-        emit PerkRedeemed(perkId, user, perk.token, perk.amount);
+            IERC20(perk.token).transfer(user, perk.amount);
+            emit PerkRedeemed(
+                perkId,
+                user,
+                perk.token,
+                badgeId,
+                tier,
+                perk.amount
+            );
 
-        if (perk.redemptions >= perk.maxRedemptions) {
-            emit PerkCompleted(badgeId, tier);
+            if (perk.redemptions >= perk.maxRedemptions) {
+                emit PerkCompleted(badgeId, tier);
+            }
         }
     }
 
@@ -215,7 +224,10 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         bytes32 perkId
     ) internal view returns (bool isValid) {
         Perk memory perk = perks[perkId];
-        if (perk.redemptions < perk.maxRedemptions) {
+        if (
+            (perk.redemptions < perk.maxRedemptions) ||
+            (perk.maxRedemptions == 0)
+        ) {
             return true;
         } else {
             return false;
