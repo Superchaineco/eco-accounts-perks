@@ -6,4 +6,8 @@ interface IEcoAccountsBadges {
         address user,
         uint256 badgeId
     ) external view returns (uint256);
+
+    function getHighestBadgeTier(
+        uint256 badgeId
+    ) external view returns (uint256);
 }

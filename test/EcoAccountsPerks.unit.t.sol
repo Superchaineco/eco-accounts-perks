@@ -455,4 +455,10 @@ contract DummyEcoAccountsBadges is IEcoAccountsBadges {
     ) external view override returns (uint256) {
         return 10;
     }
+
+    function getHighestBadgeTier(
+        uint256 badgeId
+    ) external view returns (uint256) {
+        return 5;
+    }
 }
