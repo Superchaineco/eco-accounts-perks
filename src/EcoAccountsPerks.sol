@@ -1,14 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {
+    Initializable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {
+    AccessControlUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {
+    OwnableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {
+    PausableUpgradeable
+} from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IEcoAccountsBadges} from "./interfaces/IEcoAccountsBadges.sol";
 
-contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
+contract EcoAccountsPerks is
+    Initializable,
+    AccessControlUpgradeable,
+    OwnableUpgradeable,
+    PausableUpgradeable
+{
     /*///////////////////////////////////////////////////////////////
                         State, Constants & Structs
     //////////////////////////////////////////////////////////////*/
@@ -24,12 +37,26 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         uint256 tier;
     }
 
-    IEcoAccountsBadges public ecoAccountsBadges;
-
-    mapping(bytes32 => Perk) public perks;
-    mapping(bytes32 => mapping(address => bool)) public redeemedPerks;
-
     bytes32 public constant SIGNER_ROLE = keccak256("SIGNER_ROLE");
+    struct EcoAccountsPerksStorage {
+        IEcoAccountsBadges ecoAccountsBadges;
+        mapping(bytes32 => Perk) perks;
+        mapping(bytes32 => mapping(address => bool)) redeemedPerks;
+    }
+
+    // keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.ecoaccounts_perks")) - 1)) & ~bytes32(uint256(0xff));
+    bytes32 private constant ECO_ACCOUNTS_PERKS_STORAGE_LOCATION =
+        0xe504a388e8ea4f7c1f9df3ff68b4eccc72e41810b0d1e54d07a638f146f63100;
+
+    function ecoAccountsPerksStorage()
+        private
+        pure
+        returns (EcoAccountsPerksStorage storage $)
+    {
+        assembly {
+            $.slot := ECO_ACCOUNTS_PERKS_STORAGE_LOCATION
+        }
+    }
 
     /*/////////////////////////////////////////////////////////////
                                 Errors
@@ -73,12 +100,19 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
     /*///////////////////////////////////////////////////////////////
                                 Constructor
     //////////////////////////////////////////////////////////////*/
-    constructor(
+    function initialize(
         address initialOwner,
         address ecoAccountsBadgesAddress
-    ) Ownable(initialOwner) {
+    ) public initializer {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        __Ownable_init(initialOwner);
         _grantRole(DEFAULT_ADMIN_ROLE, initialOwner);
-        ecoAccountsBadges = IEcoAccountsBadges(ecoAccountsBadgesAddress);
+        $.ecoAccountsBadges = IEcoAccountsBadges(ecoAccountsBadgesAddress);
+    }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -89,7 +123,8 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         uint256 badgeId,
         uint256 tier,
         address user
-    ) public onlyRole(SIGNER_ROLE) whenNotPaused {
+    ) public onlyRole(SIGNER_ROLE) whenNotPaused  {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
         if (_checkPerkValid(perkId)) {
             require(
@@ -101,12 +136,12 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
                 UserDoesNotHaveBadge(user, badgeId, tier)
             );
 
-            Perk storage perk = perks[perkId];
+            Perk storage perk = $.perks[perkId];
 
             if (perk.maxRedemptions != 0) {
                 perk.redemptions += 1;
             }
-            redeemedPerks[perkId][user] = true;
+            $.redeemedPerks[perkId][user] = true;
 
             IERC20(perk.token).transfer(user, perk.amount);
             emit PerkRedeemed(
@@ -144,6 +179,7 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         uint256 amount,
         uint256 maxRedemptions
     ) public onlyOwner {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         Perk memory newPerk = Perk({
             token: token,
             amount: amount,
@@ -153,7 +189,7 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
 
         bytes32 key = keccak256(abi.encodePacked(badgeId, tier));
 
-        perks[key] = newPerk;
+        $.perks[key] = newPerk;
         emit PerkAdded(badgeId, tier, token, amount, maxRedemptions);
     }
 
@@ -164,8 +200,9 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         uint256 amount,
         uint256 maxRedemptions
     ) public onlyOwner {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         bytes32 key = keccak256(abi.encodePacked(badgeId, tier));
-        Perk storage perk = perks[key];
+        Perk storage perk = $.perks[key];
         perk.token = token;
         perk.amount = amount;
         perk.maxRedemptions = maxRedemptions;
@@ -176,7 +213,8 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
     function setEcoAccountsBadgesAddress(
         address ecoAccountsBadgesAddress
     ) public onlyOwner {
-        ecoAccountsBadges = IEcoAccountsBadges(ecoAccountsBadgesAddress);
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        $.ecoAccountsBadges = IEcoAccountsBadges(ecoAccountsBadgesAddress);
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -200,8 +238,9 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
         uint256 tier,
         address user
     ) public view returns (bool isClaimed) {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
-        return redeemedPerks[perkId][user];
+        return $.redeemedPerks[perkId][user];
     }
 
     /*///////////////////////////////////////////////////////////////
@@ -223,7 +262,8 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
     function _checkPerkValid(
         bytes32 perkId
     ) internal view returns (bool isValid) {
-        Perk memory perk = perks[perkId];
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        Perk memory perk = $.perks[perkId];
         if (
             (perk.redemptions < perk.maxRedemptions) ||
             (perk.maxRedemptions == 0)
@@ -237,16 +277,18 @@ contract EcoAccountsPerks is AccessControl, Ownable, Pausable {
     function _checkUserNotClaimedPerk(
         bytes32 perkId,
         address user
-    ) internal view returns (bool notClaimed) {
-        return !redeemedPerks[perkId][user];
+    ) internal view  returns (bool notClaimed) {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        return !$.redeemedPerks[perkId][user];
     }
 
     function _checkUserHasBadge(
         address user,
         uint256 badgeId,
         uint256 tier
-    ) internal view returns (bool hasBadge) {
-        uint256 userTier = ecoAccountsBadges.getUserBadgeTier(user, badgeId);
+    ) internal view  returns (bool hasBadge) {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        uint256 userTier = $.ecoAccountsBadges.getUserBadgeTier(user, badgeId);
         return userTier >= tier;
     }
 }
