@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {EcoAccountsPerks} from "../src/EcoAccountsPerks.sol";
 import {IEcoAccountsBadges} from "../src/interfaces/IEcoAccountsBadges.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {DeployEcoAccountsPerks} from "../script/Deploy.s.sol";
 
 contract EcoAccountsPerksUnit is Test {
     EcoAccountsPerks public ecoAccountsPerks;
@@ -15,11 +16,14 @@ contract EcoAccountsPerksUnit is Test {
     address internal signer = vm.addr(signerPk);
 
     function setUp() public {
-        ecoAccountsBadges = new DummyEcoAccountsBadges();
-        ecoAccountsPerks = new EcoAccountsPerks(
+        DeployEcoAccountsPerks deployer = new DeployEcoAccountsPerks();
+        address proxy = deployer.deployForTest(
             address(this),
-            address(ecoAccountsBadges)
+            address(new DummyEcoAccountsBadges())
         );
+        ecoAccountsBadges = new DummyEcoAccountsBadges();
+
+        ecoAccountsPerks = EcoAccountsPerks(proxy);
         dummyToken = new DummyToken();
         dummyToken.transfer(
             address(ecoAccountsPerks),
@@ -27,11 +31,7 @@ contract EcoAccountsPerksUnit is Test {
         );
     }
 
-    modifier createPerk(
-        address token,
-        uint256 amount,
-        uint256 maxRedemptions
-    ) {
+    modifier createPerk(address token, uint256 amount, uint256 maxRedemptions) {
         ecoAccountsPerks.addPerk(1, 1, token, amount, maxRedemptions);
         _;
     }
@@ -108,7 +108,6 @@ contract EcoAccountsPerksUnit is Test {
         assertEq(userBalance, 100);
     }
 
-
     function test_redemPerks()
         public
         createPerkWithBadgeIdAndTier(address(dummyToken), 100, 1, 1, 1)
@@ -120,9 +119,16 @@ contract EcoAccountsPerksUnit is Test {
         uint256 badgeId2 = 1;
         uint256 tier2 = 2;
 
-        EcoAccountsPerks.PerkClaim[] memory claims = new EcoAccountsPerks.PerkClaim[](2);
-        claims[0] = EcoAccountsPerks.PerkClaim({badgeId: badgeId1, tier: tier1});
-        claims[1] = EcoAccountsPerks.PerkClaim({badgeId: badgeId2, tier: tier2});
+        EcoAccountsPerks.PerkClaim[]
+            memory claims = new EcoAccountsPerks.PerkClaim[](2);
+        claims[0] = EcoAccountsPerks.PerkClaim({
+            badgeId: badgeId1,
+            tier: tier1
+        });
+        claims[1] = EcoAccountsPerks.PerkClaim({
+            badgeId: badgeId2,
+            tier: tier2
+        });
 
         ecoAccountsPerks.grantRole(ecoAccountsPerks.SIGNER_ROLE(), signer);
         vm.prank(signer);
@@ -132,12 +138,19 @@ contract EcoAccountsPerksUnit is Test {
         assertEq(userBalance, 200);
     }
 
-    function test_redemPerksWithoutMaxRedemptions() public createPerk(address(dummyToken), 100, 0) {
+    function test_redemPerksWithoutMaxRedemptions()
+        public
+        createPerk(address(dummyToken), 100, 0)
+    {
         uint256 badgeId1 = 1;
         uint256 tier1 = 1;
 
-        EcoAccountsPerks.PerkClaim[] memory claims = new EcoAccountsPerks.PerkClaim[](1);
-        claims[0] = EcoAccountsPerks.PerkClaim({badgeId: badgeId1, tier: tier1});
+        EcoAccountsPerks.PerkClaim[]
+            memory claims = new EcoAccountsPerks.PerkClaim[](1);
+        claims[0] = EcoAccountsPerks.PerkClaim({
+            badgeId: badgeId1,
+            tier: tier1
+        });
 
         ecoAccountsPerks.grantRole(ecoAccountsPerks.SIGNER_ROLE(), signer);
         vm.prank(signer);
