@@ -15,6 +15,8 @@ contract DeployEcoAccountsPerks is Script {
             "ECO_ACCOUNTS_BADGES_ADDRESS"
         );
 
+        vm.startBroadcast();
+
         address proxy = Upgrades.deployUUPSProxy(
             "EcoAccountsPerks.sol",
             abi.encodeCall(
@@ -22,6 +24,8 @@ contract DeployEcoAccountsPerks is Script {
                 (initialOwner, ecoAccountsBadgesAddress)
             )
         );
+
+        vm.stopBroadcast();
         // vm.startBroadcast();
 
         // EcoAccountsPerks perks = new EcoAccountsPerks(
