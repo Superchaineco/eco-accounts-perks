@@ -123,7 +123,7 @@ contract EcoAccountsPerks is
         uint256 badgeId,
         uint256 tier,
         address user
-    ) public onlyRole(SIGNER_ROLE) whenNotPaused  {
+    ) public onlyRole(SIGNER_ROLE) whenNotPaused {
         EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
         if (_checkPerkValid(perkId)) {
@@ -243,6 +243,52 @@ contract EcoAccountsPerks is
         return $.redeemedPerks[perkId][user];
     }
 
+    function perks(
+        bytes32 perkId
+    )
+        public
+        view
+        returns (
+            address token,
+            uint256 amount,
+            uint256 maxRedemptions,
+            uint256 redemptions
+        )
+    {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        Perk memory perk = $.perks[perkId];
+        return (perk.token, perk.amount, perk.maxRedemptions, perk.redemptions);
+    }
+
+    function perks(
+        uint256 badgeId,
+        uint256 tier
+    )
+        public
+        view
+        returns (
+            address token,
+            uint256 amount,
+            uint256 maxRedemptions,
+            uint256 redemptions
+        )
+    {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
+        Perk memory perk = $.perks[perkId];
+        return (perk.token, perk.amount, perk.maxRedemptions, perk.redemptions);
+    }
+
+    function redemeedPerks(
+        uint256 badgeId,
+        uint256 tier,
+        address user
+    ) public view returns (bool hasRedeemed) {
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
+        return $.redeemedPerks[perkId][user];
+    }
+
     /*///////////////////////////////////////////////////////////////
                         Admin Functions
     //////////////////////////////////////////////////////////////*/
@@ -258,6 +304,13 @@ contract EcoAccountsPerks is
     /*///////////////////////////////////////////////////////////////
                         Helper Functions
     //////////////////////////////////////////////////////////////*/
+
+    function calculatePerkId(
+        uint256 badgeId,
+        uint256 tier
+    ) public pure returns (bytes32 perkId) {
+        return keccak256(abi.encodePacked(badgeId, tier));
+    }
 
     function _checkPerkValid(
         bytes32 perkId
@@ -277,7 +330,7 @@ contract EcoAccountsPerks is
     function _checkUserNotClaimedPerk(
         bytes32 perkId,
         address user
-    ) internal view  returns (bool notClaimed) {
+    ) internal view returns (bool notClaimed) {
         EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         return !$.redeemedPerks[perkId][user];
     }
@@ -286,7 +339,7 @@ contract EcoAccountsPerks is
         address user,
         uint256 badgeId,
         uint256 tier
-    ) internal view  returns (bool hasBadge) {
+    ) internal view returns (bool hasBadge) {
         EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         uint256 userTier = $.ecoAccountsBadges.getUserBadgeTier(user, badgeId);
         return userTier >= tier;
