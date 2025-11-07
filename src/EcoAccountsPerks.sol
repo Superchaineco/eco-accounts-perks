@@ -13,11 +13,15 @@ import {
 import {
     PausableUpgradeable
 } from "@openzeppelin/contracts-upgradeable/utils/PausableUpgradeable.sol";
+import {
+    UUPSUpgradeable
+} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IEcoAccountsBadges} from "./interfaces/IEcoAccountsBadges.sol";
 
 contract EcoAccountsPerks is
     Initializable,
+    UUPSUpgradeable,
     AccessControlUpgradeable,
     OwnableUpgradeable,
     PausableUpgradeable
@@ -330,4 +334,6 @@ contract EcoAccountsPerks is
         uint256 userTier = $.ecoAccountsBadges.getUserBadgeTier(user, badgeId);
         return userTier >= tier;
     }
+
+    function _authorizeUpgrade(address) internal override onlyOwner {}
 }
