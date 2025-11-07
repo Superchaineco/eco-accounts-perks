@@ -243,43 +243,21 @@ contract EcoAccountsPerks is
         return $.redeemedPerks[perkId][user];
     }
 
-    function perks(
-        bytes32 perkId
-    )
-        public
-        view
-        returns (
-            address token,
-            uint256 amount,
-            uint256 maxRedemptions,
-            uint256 redemptions
-        )
-    {
+    function perks(bytes32 perkId) public view returns (Perk memory) {
         EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
-        Perk memory perk = $.perks[perkId];
-        return (perk.token, perk.amount, perk.maxRedemptions, perk.redemptions);
+        return $.perks[perkId];
     }
 
     function perks(
         uint256 badgeId,
         uint256 tier
-    )
-        public
-        view
-        returns (
-            address token,
-            uint256 amount,
-            uint256 maxRedemptions,
-            uint256 redemptions
-        )
-    {
+    ) public view returns (Perk memory) {
         EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
         bytes32 perkId = keccak256(abi.encodePacked(badgeId, tier));
-        Perk memory perk = $.perks[perkId];
-        return (perk.token, perk.amount, perk.maxRedemptions, perk.redemptions);
+        return $.perks[perkId];
     }
 
-    function redemeedPerks(
+    function redeemedPerks(
         uint256 badgeId,
         uint256 tier,
         address user
@@ -299,6 +277,14 @@ contract EcoAccountsPerks is
 
     function withdrawTokens(address token, uint256 amount) public onlyOwner {
         IERC20(token).transfer(msg.sender, amount);
+    }
+
+    function pause() public onlyOwner {
+        _pause();
+    }
+
+    function unpause() public onlyOwner {
+        _unpause();
     }
 
     /*///////////////////////////////////////////////////////////////
