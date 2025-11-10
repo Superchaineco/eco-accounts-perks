@@ -68,3 +68,8 @@ $ cast --help
 Deployment on STAGING
 
 ECO_ACCOUNTS_BADGES_ADDRESS=0xbC24012488BFCFe44875a139299595879c43C2CD INITIAL_OWNER=0xFb8ca0B5D2416Fe3448A8BE4112351DDa502CbfB forge script script/Deploy.s.sol --rpc-url optimism --account pp-pk --broadcast --verify
+
+
+Deployment on PRODUCTION
+
+ECO_ACCOUNTS_BADGES_ADDRESS=0x03e2c563cf77e3Cdc0b7663cEE117dA14ea60848 INITIAL_OWNER=0xFb8ca0B5D2416Fe3448A8BE4112351DDa502CbfB forge script script/Deploy.s.sol --rpc-url optimism --account pp-pk --broadcast --verify

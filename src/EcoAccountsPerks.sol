@@ -330,9 +330,10 @@ contract EcoAccountsPerks is
         uint256 badgeId,
         uint256 tier
     ) internal view returns (bool hasBadge) {
-        uint256 userTier = ecoAccountsBadges.getUserBadgeTier(user, badgeId);
+        EcoAccountsPerksStorage storage $ = ecoAccountsPerksStorage();
+        uint256 userTier = $.ecoAccountsBadges.getUserBadgeTier(user, badgeId);
         if (tier == 0) {
-            uint256 highestTier = ecoAccountsBadges.getHighestBadgeTier(
+            uint256 highestTier = $.ecoAccountsBadges.getHighestBadgeTier(
                 badgeId
             );
             return userTier >= highestTier;
